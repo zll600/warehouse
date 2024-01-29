@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+const MaxWeight = 100.0 // 最大重量 100kg
 
 func generateUserID(numUsers int) []int {
 	var users []int
@@ -19,26 +21,15 @@ func generateUserID(numUsers int) []int {
 	return users
 }
 
+/*
+1. 生成一个介于 0 到 1 之间的随机数 x。
+2. 使用一个函数将 x 映射到一个重量值，这个函数应该能够保证较小的重量有更高的概率被选中。
+3. 为了实现 1/W 分布，我们可以采用反函数的方法。这意味着我们可以使用类似于 weight = 100 * (1 - sqrt(x)) 的函数，其中 x 是 0 到 1 之间的随机数。
+*/
 func generateRandomWeight() float64 {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	weightProbabilities := map[float64]float64{
-		2.0: 0.4, // 40% 的订单为 2kg
-		4.0: 0.2, // 20% 的订单为 4kg
-		6.0: 0.1, // 10% 的订单为 6kg
-		8.0: 0.3, // 30% 的订单为 8kg
-	}
-	totalOrders := 100
-	weights := make([]float64, 0, totalOrders)
-
-	for weight, prob := range weightProbabilities {
-		numOrders := int(prob * float64(totalOrders))
-		for i := 0; i < numOrders; i++ {
-			weights = append(weights, weight)
-		}
-	}
-
-	idx := r.Intn(len(weights))
-	return weights[idx]
+	x := rand.Float64()
+	weight := 100 * (1 - math.Sqrt(x))
+	return weight
 }
 
 func initdb() {
@@ -69,12 +60,12 @@ func initdb() {
 	}
 	defer stmt.Close()
 
-	users := generateUserID(10)
-	for i := 0; i < 100; i++ {
+	users := generateUserID(1000)
+	for i := 0; i < 100000; i++ {
 		uid := users[rand.Intn(len(users))]
 		weight := generateRandomWeight()
 		log.Printf("insert data id: %d, uid: %d, weight: %f\n", i, uid, weight)
-		_, err := stmt.Exec(uid, weight)
+		_, err = stmt.Exec(uid, weight)
 		if err != nil {
 			log.Fatal(err)
 		}
